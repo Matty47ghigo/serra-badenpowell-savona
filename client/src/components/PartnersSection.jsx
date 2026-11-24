@@ -31,13 +31,13 @@ export default function PartnersSection() {
         </div>
 
         {/* Partners Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {GREENHOUSE_DATA.partners.map((partner, idx) => {
             const IconComponent = iconMap[partner.icon] || Building2;
             return (
               <div
                 key={idx}
-                className="p-8 rounded-3xl bg-stone-50 border border-stone-200/90 hover:border-emerald-500/80 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
+                className="p-6 sm:p-8 rounded-3xl bg-stone-50 border border-stone-200/90 hover:border-emerald-500/80 hover:shadow-xl transition-all duration-300 flex flex-col justify-between group hover:-translate-y-1"
               >
                 <div>
                   <div className="flex items-center justify-between mb-5">

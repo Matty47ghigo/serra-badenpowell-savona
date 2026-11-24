@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Maximize2, X, Sparkles, Filter, Play, Pause } from 'lucide-react';
 import { GREENHOUSE_DATA } from '../data/greenhouseData';
 
+const FALLBACK_IMG = 'https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=1200&q=80';
+
 export default function GalleryCarousel() {
   const images = GREENHOUSE_DATA.gallery;
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,28 +67,29 @@ export default function GalleryCarousel() {
               <img
                 src={img.url}
                 alt={img.title}
+                onError={(e) => { if (e.currentTarget.src !== FALLBACK_IMG) e.currentTarget.src = FALLBACK_IMG; }}
                 className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700"
               />
               {/* Gradient Dark Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-black/10" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/20" />
 
               {/* Slide Caption */}
               <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 text-white z-20 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-                <div className="max-w-2xl">
-                  <div className="inline-block px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider mb-2">
+                <div className="max-w-2xl bg-stone-950/50 backdrop-blur-md p-4 sm:p-6 rounded-2xl border border-white/10 shadow-lg">
+                  <div className="inline-block px-3 py-1 rounded-full bg-emerald-600 text-white text-xs font-bold uppercase tracking-wider mb-2 shadow-sm">
                     {img.tag}
                   </div>
-                  <h3 className="font-serif text-2xl sm:text-3xl font-bold leading-tight mb-2">
+                  <h3 className="font-serif text-2xl sm:text-3xl font-bold leading-tight mb-2 drop-shadow-md">
                     {img.title}
                   </h3>
-                  <p className="text-stone-300 text-xs sm:text-sm max-w-xl">
+                  <p className="text-stone-200 text-xs sm:text-sm max-w-xl leading-relaxed drop-shadow-sm">
                     {img.description}
                   </p>
                 </div>
 
                 <button
                   onClick={() => setLightboxImage(img)}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-xs font-semibold self-start sm:self-auto border border-white/20"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 backdrop-blur-md text-white text-xs font-semibold self-start sm:self-auto border border-white/25 shadow-md"
                 >
                   <Maximize2 className="w-4 h-4" />
                   <span>Espandi</span>
@@ -183,16 +186,17 @@ export default function GalleryCarousel() {
                 <img
                   src={img.url}
                   alt={img.title}
+                  onError={(e) => { if (e.currentTarget.src !== FALLBACK_IMG) e.currentTarget.src = FALLBACK_IMG; }}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent flex flex-col justify-end p-5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 mb-1 drop-shadow-sm">
                     {img.tag}
                   </span>
-                  <h4 className="font-serif font-bold text-white text-base leading-snug">
+                  <h4 className="font-serif font-bold text-white text-base leading-snug drop-shadow-md">
                     {img.title}
                   </h4>
-                  <p className="text-stone-300 text-xs line-clamp-2 mt-1">
+                  <p className="text-stone-200 text-xs line-clamp-2 mt-1 drop-shadow-sm">
                     {img.description}
                   </p>
                 </div>
@@ -217,6 +221,7 @@ export default function GalleryCarousel() {
             <img
               src={lightboxImage.url}
               alt={lightboxImage.title}
+              onError={(e) => { if (e.currentTarget.src !== FALLBACK_IMG) e.currentTarget.src = FALLBACK_IMG; }}
               className="max-h-[75vh] mx-auto rounded-2xl shadow-2xl object-contain border border-stone-800"
             />
             <div className="mt-4 text-white">

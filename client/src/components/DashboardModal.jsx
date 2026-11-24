@@ -10,13 +10,15 @@ export default function DashboardModal({ isOpen, onClose }) {
   // Auth state
   const [token, setToken] = useState(localStorage.getItem('serra_token') || '');
   const [currentUser, setCurrentUser] = useState(null);
-  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register'
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'register' | 'verify'
   
   // Form credentials
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authInfo, setAuthInfo] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
   // Active dashboard tab (admin, volunteer, users)
@@ -149,6 +151,7 @@ export default function DashboardModal({ isOpen, onClose }) {
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     setAuthError('');
+    setAuthInfo('');
     setAuthLoading(true);
 
     const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/register';
@@ -161,11 +164,72 @@ export default function DashboardModal({ isOpen, onClose }) {
         body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Errore autenticazione');
+      if (!res.ok) {
+        // Login bloccato: email non verificata -> passa alla verifica OTP
+        if (res.status === 403 && data.requiresVerification) {
+          if (data.email) setEmail(data.email);
+          setAuthMode('verify');
+          setAuthInfo(data.error || 'Email non verificata. Inserisci il codice OTP che ti abbiamo inviato via email.');
+          return;
+        }
+        throw new Error(data.error || 'Errore autenticazione');
+      }
+
+      // Registrazione riuscita: se richiede verifica email, mostra il form OTP (niente token)
+      if (data.requiresVerification) {
+        setAuthMode('verify');
+        setAuthInfo(data.message || 'Registrazione effettuata. Inserisci il codice OTP ricevuto via email.');
+        return;
+      }
 
       localStorage.setItem('serra_token', data.token);
       setToken(data.token);
       setCurrentUser(data.user);
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Verifica email tramite OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setAuthInfo('');
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/verify-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Codice non valido.');
+      setAuthInfo(data.message || 'Email verificata! Ora puoi accedere.');
+      setAuthMode('login');
+      setOtp('');
+    } catch (err) {
+      setAuthError(err.message);
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Reinvia codice OTP
+  const handleResendOtp = async () => {
+    setAuthError('');
+    setAuthInfo('');
+    setAuthLoading(true);
+    try {
+      const res = await fetch('/api/auth/resend-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Errore durante il reinvio.');
+      setAuthInfo(data.message || 'Nuovo codice inviato.');
     } catch (err) {
       setAuthError(err.message);
     } finally {
@@ -333,22 +397,31 @@ export default function DashboardModal({ isOpen, onClose }) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {currentUser && (
-              <div className="hidden sm:flex items-center gap-2 bg-stone-800 px-3 py-1.5 rounded-xl border border-stone-700">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span className="text-xs text-stone-200 font-semibold">{currentUser.name}</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
-                  {currentUser.role}
-                </span>
+              <>
+                <div className="hidden sm:flex items-center gap-2 bg-stone-800 px-3 py-1.5 rounded-xl border border-stone-700">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="text-xs text-stone-200 font-semibold">{currentUser.name}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-700">
+                    {currentUser.role}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    title="Logout"
+                    className="ml-2 text-stone-400 hover:text-rose-400 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
                 <button
                   onClick={handleLogout}
                   title="Logout"
-                  className="ml-2 text-stone-400 hover:text-rose-400 transition-colors"
+                  className="sm:hidden p-2 rounded-xl bg-stone-800 border border-stone-700 text-stone-300 hover:text-rose-400 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
-              </div>
+              </>
             )}
 
             <button
@@ -394,7 +467,7 @@ export default function DashboardModal({ isOpen, onClose }) {
                 <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
                 <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
               </svg>
-              <span>Accedi con Google (mattiaghig60@gmail.com)</span>
+              <span>Accedi con Google</span>
             </button>
 
             <div className="relative flex py-2 items-center mb-5">
@@ -403,62 +476,122 @@ export default function DashboardModal({ isOpen, onClose }) {
               <div className="flex-grow border-t border-stone-200"></div>
             </div>
 
-            <form onSubmit={handleAuthSubmit} className="space-y-4">
-              {authMode === 'register' && (
+            {/* INFO / ERRORI */}
+            {authInfo && (
+              <div className="p-3.5 mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-start gap-2">
+                <Mail className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{authInfo}</span>
+              </div>
+            )}
+
+            {/* --- SEZIONE 1: FORM VERIFICA EMAIL (OTP) --- */}
+            {authMode === 'verify' ? (
+              <form onSubmit={handleVerifyOtp} className="space-y-4 mb-6">
                 <div>
-                  <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Nome Completo</label>
+                  <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Email dell'Account</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="esempio@mail.it"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-stone-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Codice OTP a 6 cifre</label>
                   <input
                     type="text"
                     required
-                    placeholder="es. Mario Rossi"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="es. 123456"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-base text-center tracking-[0.3em] font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
+                  <p className="text-[10px] text-stone-400 mt-1 text-center">
+                    Inserisci il codice inviato a <strong>{email || 'tua email'}</strong>
+                  </p>
                 </div>
-              )}
+                <button
+                  type="submit"
+                  disabled={authLoading || otp.length !== 6}
+                  className="w-full py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                  <span>Verifica Email e Continua</span>
+                </button>
+                <div className="flex items-center justify-between text-[11px] pt-2">
+                  <button type="button" onClick={handleResendOtp} disabled={authLoading} className="text-emerald-700 font-semibold underline">
+                    Non hai ricevuto il codice? Reinvia
+                  </button>
+                  <button type="button" onClick={() => { setAuthMode('login'); setAuthError(''); setAuthInfo(''); }} className="text-stone-500 underline">
+                    Torna al login
+                  </button>
+                </div>
+              </form>
+            ) : (
+              /* --- SEZIONE 2: LOGIN / REGISTRAZIONE --- */
+              <>
+                <form onSubmit={handleAuthSubmit} className="space-y-4">
+                  {authMode === 'register' && (
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Nome Completo</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="es. Mario Rossi"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      />
+                    </div>
+                  )}
 
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Email</label>
-                <input
-                  type="email"
-                  required
-                  placeholder="mattiaghig60@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="esempio@mail.it"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Password</label>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 uppercase mb-1">Password</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                  </div>
 
-              <button
-                type="submit"
-                disabled={authLoading}
-                className="w-full py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2"
-              >
-                {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
-                <span>{authMode === 'login' ? 'Accedi' : 'Registrati'}</span>
-              </button>
-            </form>
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition-colors flex items-center justify-center gap-2"
+                  >
+                    {authLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
+                    <span>{authMode === 'login' ? 'Accedi' : 'Registrati'}</span>
+                  </button>
+                </form>
 
-            <div className="text-center mt-6 text-xs text-stone-500">
-              {authMode === 'login' ? (
-                <span>Non hai un account? <button onClick={() => setAuthMode('register')} className="font-bold text-emerald-700 underline">Registrati</button></span>
-              ) : (
-                <span>Hai già un account? <button onClick={() => setAuthMode('login')} className="font-bold text-emerald-700 underline">Accedi</button></span>
-              )}
-            </div>
+                <div className="text-center mt-6 text-xs text-stone-500">
+                  {authMode === 'login' ? (
+                    <span>Non hai un account? <button onClick={() => setAuthMode('register')} className="font-bold text-emerald-700 underline">Registrati</button></span>
+                  ) : (
+                    <span>Hai già un account? <button onClick={() => setAuthMode('login')} className="font-bold text-emerald-700 underline">Accedi</button></span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ) : (
           /* --- UTENTE AUTENTICATO --- */
@@ -493,13 +626,13 @@ export default function DashboardModal({ isOpen, onClose }) {
               <div className="flex-1 flex flex-col overflow-hidden">
                 
                 {/* Dashboard Tabs Bar */}
-                <div className="px-6 py-3 bg-stone-100 border-b border-stone-200 flex flex-wrap gap-2 items-center justify-between">
-                  <div className="flex gap-2">
+                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-stone-100 border-b border-stone-200 flex items-center justify-between gap-2 overflow-x-auto">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                     {(currentUser.role === 'admin' || currentUser.role === 'superadmin') && (
                       <>
                         <button
                           onClick={() => setActiveTab('bookings')}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                             activeTab === 'bookings' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white text-stone-700 hover:bg-stone-200'
                           }`}
                         >
@@ -507,7 +640,7 @@ export default function DashboardModal({ isOpen, onClose }) {
                         </button>
                         <button
                           onClick={() => setActiveTab('stats')}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                             activeTab === 'stats' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white text-stone-700 hover:bg-stone-200'
                           }`}
                         >
@@ -519,7 +652,7 @@ export default function DashboardModal({ isOpen, onClose }) {
                     {/* Scheda Volontari (visibile anche agli admin) */}
                     <button
                       onClick={() => setActiveTab('volunteer')}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                      className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                         activeTab === 'volunteer' ? 'bg-emerald-700 text-white shadow-sm' : 'bg-white text-stone-700 hover:bg-stone-200'
                       }`}
                     >
@@ -530,7 +663,7 @@ export default function DashboardModal({ isOpen, onClose }) {
                     {currentUser.role === 'superadmin' && (
                       <button
                         onClick={() => setActiveTab('users')}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
                           activeTab === 'users' ? 'bg-purple-700 text-white shadow-sm' : 'bg-white text-stone-700 hover:bg-stone-200'
                         }`}
                       >
@@ -541,7 +674,7 @@ export default function DashboardModal({ isOpen, onClose }) {
 
                   <button
                     onClick={loadAdminData}
-                    className="p-2 rounded-xl bg-white border border-stone-300 text-stone-600 hover:text-emerald-700 hover:bg-stone-50 text-xs"
+                    className="p-2 rounded-xl bg-white border border-stone-300 text-stone-600 hover:text-emerald-700 hover:bg-stone-50 text-xs shrink-0"
                     title="Aggiorna Dati"
                   >
                     <RefreshCw className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} />

@@ -1,14 +1,49 @@
 services:
-  serra-savona:
+  mongodb:
+    image: mongo:7
+    container_name: serra-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=serra_savona
+
+  backend:
     build:
       context: .
-      dockerfile: Dockerfile
-    container_name: serra-baden-powell-savona
+      dockerfile: Dockerfile.backend
+    container_name: serra-backend
     restart: unless-stopped
     ports:
       - "5000:5000"
     environment:
       - PORT=5000
       - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/serra_savona
+      - FRONTEND_URL=http://localhost:3000
+    env_file:
+      - .env
+    depends_on:
+      - mongodb
     volumes:
       - ./server/data:/app/server/data
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+      args:
+        - VITE_RECAPTCHA_SITE_KEY=${VITE_RECAPTCHA_SITE_KEY}
+    container_name: serra-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+
+volumes:
+  mongodb_data:

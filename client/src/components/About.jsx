@@ -32,28 +32,29 @@ export default function About() {
           <div className="lg:col-span-5 relative">
             <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white">
               <img
-                src="https://images.unsplash.com/photo-1509423350716-97f9360b4e09?auto=format&fit=crop&w=1000&q=80"
+                src="/images/serra/serra-1.jpg"
                 alt="Collezione cactacee serra Baden Powell Savona"
+                onError={(e) => { if (!e.currentTarget.src.includes('serra-2')) e.currentTarget.src = '/images/serra/serra-2.jpg'; }}
                 className="w-full h-[450px] object-cover hover:scale-105 transition-transform duration-700"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent flex flex-col justify-end p-6 text-white">
-                <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent flex flex-col justify-end p-6 text-white">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 drop-shadow-md">
                   Via Pietro Amendola • Savona
                 </span>
-                <p className="font-serif text-lg font-bold">
+                <p className="font-serif text-lg font-bold drop-shadow-md">
                   Custodi di oltre 700 specie cactacee e succulente
                 </p>
               </div>
             </div>
 
             {/* Floating badge */}
-            <div className="absolute -bottom-6 -right-6 hidden sm:flex items-center gap-3 p-4 rounded-2xl bg-white shadow-xl border border-stone-200 max-w-xs">
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
-                <Clock className="w-6 h-6 text-emerald-700" />
+            <div className="mt-4 sm:mt-0 sm:absolute sm:-bottom-5 sm:-right-5 flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl bg-white shadow-xl border border-stone-200 max-w-xs">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-800 shrink-0">
+                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-700" />
               </div>
               <div className="text-xs">
                 <p className="font-bold text-stone-900">Visite del Giovedì</p>
-                <p className="text-stone-500">Accesso esclusivamente guidato dalle 14:00 alle 17:00.</p>
+                <p className="text-stone-500 text-[11px] sm:text-xs">Accesso esclusivamente guidato dalle 14:00 alle 17:00.</p>
               </div>
             </div>
           </div>

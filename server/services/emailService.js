@@ -5,6 +5,7 @@ const {
   getStaffCancellationTemplate,
   getRescheduleConfirmationTemplate,
   getUserCancellationTemplate,
+  getVerificationTemplate,
 } = require('../templates/emailTemplates');
 const { createGoogleCalendarUrl, generateIcsContent } = require('./calendarService');
 
@@ -189,10 +190,27 @@ const sendUserCancellationEmail = async (booking, hostUrl = '') => {
   });
 };
 
+/**
+ * Invia email di verifica account (OTP + link)
+ */
+const sendVerificationEmail = async (user, otp, hostUrl = '') => {
+  const baseUrl = hostUrl || process.env.BASE_URL || 'http://localhost:5000';
+  const verifyUrl = `${baseUrl}/api/auth/verify-email?email=${encodeURIComponent(user.email)}&otp=${otp}`;
+
+  const html = getVerificationTemplate({ user, otp, verifyUrl });
+
+  return sendMailSafely({
+    to: user.email,
+    subject: `Verifica la tua email - Serra Baden-Powell Savona (Codice: ${otp})`,
+    html,
+  });
+};
+
 module.exports = {
   sendBookingConfirmation,
   sendReminderEmail,
   sendStaffCancellationEmail,
   sendRescheduleConfirmationEmail,
   sendUserCancellationEmail,
+  sendVerificationEmail,
 };

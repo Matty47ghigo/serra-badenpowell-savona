@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const { connectDB, getDbStatus } = require('./config/db');
 
 // Route modules
@@ -14,12 +13,16 @@ const cronRoutes = require('./routes/cronRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 // Connessione a MongoDB
 connectDB();
 
 // Middleware globali
-app.use(cors());
+app.use(cors({
+  origin: FRONTEND_URL,
+  credentials: true
+}));
 app.use(express.json());
 
 // API Health Check & System Status
@@ -40,15 +43,9 @@ app.use('/api/volunteer', volunteerRoutes);
 app.use('/api/manage', autonomousRoutes);
 app.use('/api/cron', cronRoutes);
 
-// Servire frontend React statico se presente (Produzione / Vercel / Docker)
-const clientDistPath = path.join(__dirname, '..', 'client', 'dist');
-app.use(express.static(clientDistPath));
-
-app.get('*', (req, res) => {
-  if (req.path.startsWith('/api')) {
-    return res.status(404).json({ error: 'Endpoint API non trovato.' });
-  }
-  res.sendFile(path.join(clientDistPath, 'index.html'));
+// 404 per API non trovate
+app.use('/api/*', (req, res) => {
+  res.status(404).json({ error: 'Endpoint API non trovato.' });
 });
 
 // Avvio server solo se eseguito direttamente (non come serverless function Vercel)
@@ -56,6 +53,7 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`🌿 Server Serra Baden-Powell Savona attivo sulla porta ${PORT}`);
     console.log(`📡 URL API: http://localhost:${PORT}/api/health`);
+    console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
   });
 }
 

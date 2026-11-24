@@ -19,29 +19,67 @@ const isThursday = (dateString) => {
   return d.getDay() === 4;
 };
 
-// Verifica CAPTCHA (Cloudflare Turnstile o reCAPTCHA)
+// Verifica CAPTCHA tramite Google reCAPTCHA (siteverify REST con timeout)
 const verifyCaptcha = async (token) => {
-  const secret = process.env.CAPTCHA_SECRET_KEY || process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    // In ambiente dev senza chiavi esterne impostate, validazione automatica
+  // Il token è SEMPRE obbligatorio: nessun token = blocco immediato
+  if (!token || typeof token !== 'string' || token.trim().length < 5) {
+    console.warn('⚠️ Tentativo di prenotazione senza token CAPTCHA valido (bypass bloccato).');
+    return false;
+  }
+
+  const cleanToken = token.trim();
+  const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+
+  // Se in produzione SENZA secret key configurata: rifiuta sempre (no bypass)
+  if (!recaptchaSecret) {
+    if (process.env.NODE_ENV === 'production') {
+      console.error('❌ RECAPTCHA_SECRET_KEY non configurata in produzione. Prenotazione rifiutata.');
+      return false;
+    }
+    // Sviluppo/locale senza chiave: consenti solo se token presente
+    console.warn('⚠️ [DEV] RECAPTCHA_SECRET_KEY non impostata: consentito solo in sviluppo.');
     return true;
   }
-  if (!token) return false;
 
   try {
-    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+    const params = new URLSearchParams();
+    params.append('secret', recaptchaSecret);
+    params.append('response', cleanToken);
+
+    // Timeout 8s per evitare che la richiesta si blocchi indefinitamente
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const resp = await fetch('https://www.google.com/recaptcha/api/siteverify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        secret,
-        response: token,
-      }),
+      body: params,
+      signal: controller.signal,
     });
-    const outcome = await response.json();
-    return outcome.success === true;
-  } catch (err) {
-    console.error('Errore validazione Turnstile:', err);
+    clearTimeout(timeoutId);
+
+    const data = await resp.json();
+
+    if (data.success !== true) {
+      console.warn('❌ reCAPTCHA fallito:', data['error-codes']);
+      return false;
+    }
+
+    // reCAPTCHA v3: verifica lo score (0.0 - 1.0)
+    if (typeof data.score === 'number' && data.score < 0.5) {
+      console.warn(`❌ reCAPTCHA v3 score troppo basso: ${data.score}`);
+      return false;
+    }
+
+    console.log('✅ reCAPTCHA verificato con successo.');
     return true;
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      console.error('❌ Timeout verifica reCAPTCHA (8s superato).');
+    } else {
+      console.error('❌ Errore validazione Google reCAPTCHA:', err.message);
+    }
+    return false;
   }
 };
 

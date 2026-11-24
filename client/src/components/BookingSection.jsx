@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, Clock, User, Mail, Phone, 
   CheckCircle, AlertCircle, Sparkles, Printer, Download, RefreshCw, Shield, ShieldCheck 
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LeBFy8uAAAAAFtH2PMtK2djjKkIoP_16Mt-7yYS';
 
 export default function BookingSection() {
   // Calcola il prossimo giovedì disponibile
@@ -43,10 +45,8 @@ export default function BookingSection() {
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
   
-  // Anti-bot CAPTCHA
-  const [captchaVerified, setCaptchaVerified] = useState(false);
-  const [captchaLoading, setCaptchaLoading] = useState(false);
-
+  // Anti-bot CAPTCHA (Google reCAPTCHA v3)
+  const [recaptchaReady, setRecaptchaReady] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -84,23 +84,49 @@ export default function BookingSection() {
     fetchSlots(date);
   }, [date]);
 
-  // Simulazione / Verifica Anti-Bot Turnstile
-  const handleCaptchaVerify = () => {
-    setCaptchaLoading(true);
-    setTimeout(() => {
-      setCaptchaVerified(true);
-      setCaptchaLoading(false);
-    }, 700);
+  // --- Google reCAPTCHA Enterprise: inizializzazione e verifica disponibilità ---
+  // Caricamento script reCAPTCHA v3
+  useEffect(() => {
+    const checkRecaptcha = () => {
+      if (typeof window !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+        setRecaptchaReady(true);
+        return true;
+      }
+      return false;
+    };
+
+    if (!checkRecaptcha()) {
+      const interval = setInterval(() => {
+        if (checkRecaptcha()) {
+          clearInterval(interval);
+        }
+      }, 300);
+      return () => clearInterval(interval);
+    }
+  }, []);
+
+  // Esecuzione Google reCAPTCHA v3 (invisible, score-based)
+  const executeRecaptcha = () => {
+    return new Promise((resolve, reject) => {
+      if (typeof window !== 'undefined' && window.grecaptcha && typeof window.grecaptcha.execute === 'function') {
+        window.grecaptcha.ready(async () => {
+          try {
+            const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'BOOKING' });
+            resolve(token);
+          } catch (err) {
+            console.error('Errore chiamata grecaptcha.execute:', err);
+            reject(err);
+          }
+        });
+      } else {
+        reject(new Error('Google reCAPTCHA non ancora pronto.'));
+      }
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
-
-    if (!captchaVerified) {
-      setErrorMsg('Per favore completa la verifica di sicurezza anti-bot prima di procedere.');
-      return;
-    }
 
     if (!name.trim() || !email.trim() || !date || !selectedSlot) {
       setErrorMsg('Compila tutti i campi obbligatori contrassegnati con asterisco.');
@@ -108,6 +134,22 @@ export default function BookingSection() {
     }
 
     setSubmitting(true);
+    let token = '';
+
+    try {
+      // 1. Richiama grecaptcha.execute per l'azione di prenotazione
+      token = await executeRecaptcha();
+    } catch (err) {
+      console.warn('Avviso esecuzione reCAPTCHA:', err.message);
+      token = '';
+    }
+
+    if (!token) {
+      setErrorMsg('Verifica di sicurezza reCAPTCHA non riuscita. Ricarica la pagina e riprova.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const res = await fetch('/api/bookings', {
         method: 'POST',
@@ -120,7 +162,7 @@ export default function BookingSection() {
           timeSlot: selectedSlot,
           visitorsCount: Number(visitorsCount),
           notes: notes.trim(),
-          captchaToken: 'verified-turnstile-token',
+          captchaToken: token,
         })
       });
 
@@ -166,6 +208,14 @@ export default function BookingSection() {
     setNotes('');
     setVisitorsCount(2);
     setCaptchaVerified(false);
+    setRecaptchaToken('');
+    setCaptchaLoading(false);
+    // Reset del widget reCAPTCHA (se configurato)
+    if (isRecaptchaConfigured && recaptchaWidgetId.current !== null && window.grecaptcha) {
+      try {
+        window.grecaptcha.reset(recaptchaWidgetId.current);
+      } catch (e) {}
+    }
     fetchSlots(date);
   };
 
@@ -194,16 +244,16 @@ export default function BookingSection() {
 
         {/* --- SCHERMATA POST-PRENOTAZIONE (BIGLIETTO DIGITALE CON QR CODE) --- */}
         {confirmedBooking ? (
-          <div className="bg-white text-stone-900 rounded-3xl p-6 sm:p-10 shadow-2xl border-4 border-emerald-600 animate-fadeIn max-w-2xl mx-auto print:border-none print:shadow-none print:m-0 print:p-0">
+          <div className="bg-white text-stone-900 rounded-3xl p-4 sm:p-8 md:p-10 shadow-2xl border-2 sm:border-4 border-emerald-600 animate-fadeIn max-w-2xl mx-auto print:border-none print:shadow-none print:m-0 print:p-0">
             
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-3">
-                <CheckCircle className="w-10 h-10" />
+              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10" />
               </div>
-              <span className="text-xs font-bold uppercase tracking-widest text-emerald-800">
+              <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-emerald-800">
                 Prenotazione Confermata!
               </span>
-              <h3 className="font-serif text-2xl sm:text-3xl font-bold text-stone-900 mt-1">
+              <h3 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-stone-900 mt-1">
                 Pass d'Ingresso Digitale
               </h3>
               <p className="text-stone-500 text-xs sm:text-sm mt-1">
@@ -212,7 +262,7 @@ export default function BookingSection() {
             </div>
 
             {/* Ticket Card */}
-            <div className="rounded-3xl bg-stone-50 border-2 border-dashed border-stone-300 p-6 sm:p-8 space-y-6 mb-6">
+            <div className="rounded-2xl sm:rounded-3xl bg-stone-50 border-2 border-dashed border-stone-300 p-4 sm:p-8 space-y-5 sm:space-y-6 mb-6">
               
               {/* Header Ticket */}
               <div className="flex items-center justify-between border-b border-stone-200 pb-4">
@@ -318,7 +368,7 @@ export default function BookingSection() {
           /* --- FORM DI PRENOTAZIONE (SOLO GIOVEDÌ 14:00 - 17:00) --- */
           <form
             onSubmit={handleSubmit}
-            className="bg-stone-800/90 backdrop-blur-xl border border-stone-700 rounded-3xl p-6 sm:p-10 shadow-2xl space-y-8"
+            className="bg-stone-800/90 backdrop-blur-xl border border-stone-700 rounded-3xl p-4 sm:p-8 md:p-10 shadow-2xl space-y-6 sm:space-y-8"
           >
             {errorMsg && (
               <div className="p-4 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-sm flex items-center gap-3 animate-fadeIn">
@@ -451,7 +501,7 @@ export default function BookingSection() {
                   <input
                     type="email"
                     required
-                    placeholder="mario.rossi@email.it"
+                    placeholder="esempio@mail.it"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-stone-900 border border-stone-700 rounded-xl px-3.5 py-2.5 text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
@@ -496,31 +546,37 @@ export default function BookingSection() {
               </div>
             </div>
 
-            {/* 4. VERIFICA SICUREZZA ANTI-BOT (CAPTCHA) */}
+            {/* 4. PROTEZIONE SICUREZZA ANTI-BOT (Google reCAPTCHA v3) */}
             <div className="border-t border-stone-700/80 pt-6">
               <label className="block text-xs font-bold uppercase tracking-wider text-stone-300 mb-3 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-emerald-400" />
-                <span>4. Verifica di Sicurezza Anti-Bot *</span>
+                <span>4. Sicurezza & Protezione Anti-Bot *</span>
               </label>
 
-              <div className="p-4 rounded-2xl bg-stone-900 border border-stone-700 flex items-center justify-between max-w-sm">
+              <div className="p-4 rounded-2xl bg-stone-900 border border-stone-700/80 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="captcha-check"
-                    checked={captchaVerified}
-                    onChange={handleCaptchaVerify}
-                    className="w-5 h-5 accent-emerald-600 rounded cursor-pointer"
-                  />
-                  <label htmlFor="captcha-check" className="text-xs font-medium text-stone-200 cursor-pointer">
-                    {captchaLoading ? 'Verifica in corso...' : 'Non sono un robot (Turnstile / reCAPTCHA)'}
-                  </label>
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-white">Google reCAPTCHA v3</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        {recaptchaReady ? 'Protezione Attiva' : 'Caricamento...'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-stone-400 mt-0.5">
+                      Verifica invisibile automatica. Nessuna azione richiesta.
+                    </p>
+                  </div>
                 </div>
-                {captchaVerified ? (
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                ) : (
-                  <span className="text-[10px] text-stone-500 font-mono">Anti-Bot</span>
-                )}
+
+                <div className="hidden sm:block text-right">
+                  <span className="text-[10px] font-mono text-stone-500 block">reCAPTCHA v3 Invisible</span>
+                  <span className="text-[10px] text-emerald-400 font-semibold">
+                    {recaptchaReady ? 'Verifica automatica attiva' : 'Inizializzazione...'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -528,13 +584,13 @@ export default function BookingSection() {
             <div>
               <button
                 type="submit"
-                disabled={submitting || !captchaVerified}
-                className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-xl hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={submitting}
+                className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-xl hover:shadow-emerald-900/50 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
                     <RefreshCw className="w-5 h-5 animate-spin" />
-                    <span>Emissione Pass in corso...</span>
+                    <span>Verifica reCAPTCHA ed emissione Pass in corso...</span>
                   </>
                 ) : (
                   <>

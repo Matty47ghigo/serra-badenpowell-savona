@@ -23,6 +23,8 @@ yarn-debug.log*
 yarn-error.log*
 out.log
 err.log
+test-email.js
+test.json
 
 # IDE/Editor folders
 .vscode/

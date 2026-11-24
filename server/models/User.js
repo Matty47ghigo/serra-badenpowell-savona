@@ -42,6 +42,19 @@ const userSchema = new mongoose.Schema(
       enum: ['pending', 'active', 'suspended'],
       default: 'pending',
     },
+    // Verifica email (OTP / link)
+    verified: {
+      type: Boolean,
+      default: false,
+    },
+    verificationOtp: {
+      type: String,
+      default: null,
+    },
+    verificationOtpExpires: {
+      type: Date,
+      default: null,
+    },
     approvedBy: {
       type: String,
       default: null,
@@ -55,7 +68,7 @@ const userSchema = new mongoose.Schema(
 );
 
 // Assegna automaticamente superadmin e stato attivo all'Owner mattiaghig60@gmail.com
-userSchema.pre('save', async function (next) {
+userSchema.pre('save', async function () {
   if (this.email.toLowerCase() === SUPERADMIN_EMAIL.toLowerCase()) {
     this.role = 'superadmin';
     this.status = 'active';
@@ -66,7 +79,6 @@ userSchema.pre('save', async function (next) {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
   }
-  next();
 });
 
 // Metodo per verificare la password
@@ -75,10 +87,27 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Escludi hash password dai json ritornati
+// Genera un OTP a 6 cifre con scadenza (10 minuti)
+userSchema.methods.generateVerificationOtp = function () {
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+  this.verificationOtp = otp;
+  this.verificationOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minuti
+  return otp;
+};
+
+// Verifica l'OTP fornito (case-insensitive per email già normalizzata)
+userSchema.methods.verifyOtp = function (otp) {
+  if (!this.verificationOtp || !this.verificationOtpExpires) return false;
+  if (new Date() > this.verificationOtpExpires) return false;
+  return String(otp).trim() === String(this.verificationOtp);
+};
+
+// Escludi hash password e OTP dai json ritornati
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
+  delete obj.verificationOtp;
+  delete obj.verificationOtpExpires;
   return obj;
 };
 

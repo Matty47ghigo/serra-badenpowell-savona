@@ -36,15 +36,15 @@ export default function BotanicalHeritage() {
         </div>
 
         {/* Search & Family Filter Bar */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-10 bg-stone-50 p-4 rounded-3xl border border-stone-200">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 mb-8 sm:mb-10 bg-stone-50 p-3 sm:p-4 rounded-3xl border border-stone-200">
           
-          {/* Family Tabs */}
-          <div className="flex flex-wrap gap-2 w-full md:w-auto">
+          {/* Family Tabs - Scrollabile touch su mobile */}
+          <div className="flex overflow-x-auto pb-1 sm:pb-0 gap-2 w-full md:w-auto shrink-0 no-scrollbar">
             {PLANT_FAMILIES.map((fam) => (
               <button
                 key={fam.id}
                 onClick={() => setSelectedFamily(fam.id)}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 ${
+                className={`px-3.5 sm:px-4 py-2 rounded-2xl text-xs font-bold transition-all duration-200 whitespace-nowrap shrink-0 ${
                   selectedFamily === fam.id
                     ? 'bg-emerald-700 text-white shadow-md'
                     : 'bg-white text-stone-700 hover:bg-stone-200/80 border border-stone-200'
@@ -63,13 +63,13 @@ export default function BotanicalHeritage() {
               placeholder="Cerca specie, nome o origine..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-xs rounded-2xl border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+              className="w-full pl-10 pr-4 py-2.5 text-xs rounded-2xl border border-stone-300 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
             />
           </div>
         </div>
 
         {/* Plants Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {filteredPlants.map((plant) => (
             <div
               key={plant.id}
@@ -135,39 +135,40 @@ export default function BotanicalHeritage() {
 
       </div>
 
-      {/* --- MODAL SCHEDA BOTANICA APPROFONDITA --- */}
+      {/* --- MODAL SCHEDA BOTANICA APPROFONDITA (Mobile & Tablet Responsive) --- */}
       {selectedPlant && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-2xl w-full overflow-hidden shadow-2xl border border-stone-200 relative">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden shadow-2xl border border-stone-200 relative">
             <button
               onClick={() => setSelectedPlant(null)}
-              className="absolute top-4 right-4 z-10 p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+              className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 p-2 sm:p-2.5 rounded-full bg-black/60 hover:bg-black/80 text-white transition-colors"
+              aria-label="Chiudi scheda botanica"
             >
               <X className="w-5 h-5" />
             </button>
 
-            <div className="aspect-video relative overflow-hidden bg-stone-900">
+            <div className="h-44 sm:h-56 md:h-64 relative overflow-hidden bg-stone-900 shrink-0">
               <img
                 src={selectedPlant.image}
                 alt={selectedPlant.scientificName}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-transparent flex items-end p-6">
+              <div className="absolute inset-0 bg-gradient-to-t from-stone-950/95 via-stone-950/30 to-transparent flex items-end p-4 sm:p-6">
                 <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  <span className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-400">
                     {selectedPlant.family} • {selectedPlant.origin}
                   </span>
-                  <h3 className="font-serif text-2xl sm:text-3xl font-bold text-white mt-0.5">
+                  <h3 className="font-serif text-xl sm:text-2xl md:text-3xl font-bold text-white mt-0.5 leading-tight">
                     {selectedPlant.commonName}
                   </h3>
-                  <div className="font-serif italic text-stone-300 text-sm">
+                  <div className="font-serif italic text-stone-300 text-xs sm:text-sm">
                     {selectedPlant.scientificName}
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 sm:p-8 space-y-4 max-h-[50vh] overflow-y-auto">
+            <div className="p-4 sm:p-6 md:p-8 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
               <div>
                 <h4 className="font-serif font-bold text-sm text-stone-900 mb-1">
                   Descrizione Morfologica

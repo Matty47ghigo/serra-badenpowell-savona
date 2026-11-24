@@ -1,0 +1,26 @@
+# Frontend Dockerfile
+FROM node:20-alpine AS builder
+
+WORKDIR /app/client
+
+# Build-time env (Vite espone VITE_* nel bundle)
+ARG VITE_RECAPTCHA_SITE_KEY
+ENV VITE_RECAPTCHA_SITE_KEY=$VITE_RECAPTCHA_SITE_KEY
+
+# Install frontend dependencies
+COPY client/package*.json ./
+RUN npm install
+
+# Build static assets
+COPY client/ ./
+RUN npm run build
+
+# Production stage with nginx
+FROM nginx:alpine
+
+COPY --from=builder /app/client/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 3000
+
+CMD ["nginx", "-g", "daemon off;"]

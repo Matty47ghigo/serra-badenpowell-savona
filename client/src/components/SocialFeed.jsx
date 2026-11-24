@@ -135,6 +135,7 @@ export default function SocialFeed() {
                 <img
                   src={post.image}
                   alt="Post social serra baden powell savona"
+                  onError={(e) => { if (!e.currentTarget.src.includes('serra-1')) e.currentTarget.src = '/images/serra/serra-1.jpg'; }}
                   className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
                 />
               </div>

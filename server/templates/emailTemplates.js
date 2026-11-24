@@ -378,10 +378,61 @@ const getUserCancellationTemplate = ({ booking, siteUrl }) => {
   return getBaseLayout(content, `Conferma avvenuta disdetta visita Serra Baden-Powell`);
 };
 
+/**
+ * Template Email di Verifica Account (OTP + Link)
+ */
+const getVerificationTemplate = ({ user, otp, verifyUrl }) => {
+  const content = `
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #047857; font-weight: 700;">
+        Verifica il tuo Account
+      </div>
+      <h1 style="font-family: Georgia, serif; font-size: 26px; color: #1c1917; margin: 8px 0;">
+        Benvenuto/a nella Serra, ${user.name}!
+      </h1>
+      <p style="font-size: 14px; color: #57534e; margin: 0;">
+        Per completare la registrazione e poter accedere, verifica la tua email <strong>${user.email}</strong>.
+      </p>
+    </div>
+
+    <p style="font-size: 14px; color: #44403c; line-height: 1.6; margin: 20px 0;">
+      Inserisci il codice OTP a 6 cifre qui sotto nell'apposito campo di verifica del sito:
+    </p>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <div style="display: inline-block; padding: 18px 40px; background-color: #ecfdf5; border: 2px dashed #047857; border-radius: 16px; font-family: 'Courier New', monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #065f46;">
+        ${otp}
+      </div>
+      <p style="font-size: 11px; color: #78716c; margin: 10px 0 0 0;">
+        Il codice è valido per 10 minuti. Non condividerlo con nessuno.
+      </p>
+    </div>
+
+    <p style="font-size: 13px; color: #57534e; line-height: 1.6; margin: 20px 0; text-align: center;">
+      In alternativa, puoi cliccare il pulsante qui sotto per verificare direttamente con un link:
+    </p>
+
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${verifyUrl}" class="btn btn-emerald" style="display: inline-block; padding: 12px 28px; font-size: 14px; background-color: #047857; color: #ffffff; text-decoration: none; border-radius: 9999px; font-weight: 700;">
+        Verifica la mia Email
+      </a>
+    </div>
+
+    <div style="margin-top: 32px; padding: 16px; background-color: #fafaf9; border: 1px solid #e7e5e4; border-radius: 12px;">
+      <p style="font-size: 12px; color: #78716c; margin: 0; line-height: 1.5;">
+        Se non hai richiesto tu questa registrazione, puoi ignorare questo messaggio: l'account non verrà attivato.
+      </p>
+    </div>
+  `;
+
+  return getBaseLayout(content, `Verifica la tua email per accedere alla Serra Baden-Powell`);
+};
+
 module.exports = {
   getBookingConfirmationTemplate,
   getReminderTemplate,
   getStaffCancellationTemplate,
   getRescheduleConfirmationTemplate,
   getUserCancellationTemplate,
+  getVerificationTemplate,
 };
